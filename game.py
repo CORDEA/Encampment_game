@@ -102,8 +102,10 @@ class Game(ConnectionListener):
 
         self.mouseCount = 0
         self.keyCount    = 0
-        
-        
+       
+        self.bomb_icon = image.load("resources/bomb_icon.png")
+        self.bomb_icon = transform.scale(self.bomb_icon, (self.width, self.height))
+
         self.running = False
         address=raw_input("Host:Port : ")
         try:
@@ -211,6 +213,9 @@ class Game(ConnectionListener):
                     color = self.colorList[6]
                 elif grid[row][column] == 7:
                     color = self.colorList[7]
+                elif grid[row][column] == 8:
+                    color = self.colorList[1]
+                    screen.blit(self.bomb_icon, ((margin + width) * column + margin, (margin + height) * row + margin))
                 draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
         
         self.drawNav()
@@ -437,6 +442,12 @@ class Game(ConnectionListener):
         self.setPlayer(grid, player)
         self.drawGrid(grid)
 
+
+
+
+
+
+
     def start(self, grid, ownList):
         enemyRouteList = self.enemyRouteList
         enemyBombList  = self.enemyBombList
@@ -580,7 +591,9 @@ class Game(ConnectionListener):
         
         while True:
             ev   = event.wait()
-            if ev.type == KEYDOWN:      
+            if ev.type == QUIT:
+                quit()
+            elif ev.type == KEYDOWN:      
                 if ev.key == K_ESCAPE:
                     quit()
 
@@ -606,7 +619,9 @@ class Game(ConnectionListener):
 
         while True:
             ev = event.wait()
-            if ev.type == KEYDOWN:
+            if ev.type == QUIT:
+                quit()
+            elif ev.type == KEYDOWN:
                 if ev.key == K_SPACE:
                     print("game start")
                     self.setField(grid)
@@ -673,6 +688,6 @@ if __name__=='__main__':
     while True:
         ev = event.wait()
         if ev.type == QUIT:
-            break
+            quit()
         else:
             game.startupScreen(grid)
