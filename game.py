@@ -104,7 +104,13 @@ class Game(ConnectionListener):
         self.keyCount    = 0
        
         self.bomb_icon = image.load("resources/bomb_icon.gif")
+        self.bomb = image.load("resources/bomb.png")
         self.bomb_icon = transform.scale(self.bomb_icon, (self.width, self.height))
+        self.bomb = transform.scale(self.bomb, (self.width, self.height))
+        self.set_bomb  = mixer.sound("resources/set_bomb.mp3")
+        self.bomb  = mixer.sound("resources/bomb.mp3")
+        self.set_bomb.set_volume(0.05)
+        self.bomb.set_volume(0.05)
 
         self.running = False
         address=raw_input("Host:Port : ")
@@ -217,8 +223,14 @@ class Game(ConnectionListener):
                     color = self.colorList[1]
                     draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
                     self.screen.blit(self.bomb_icon, ((margin + width) * column + margin, (margin + height) * row + margin))
-                    
-                if not grid[row][column] == 8:
+                    self.set_bomb.play()
+                elif grid[row][column] == 9:
+                    color = self.colorList[0]
+                    draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
+                    self.screen.blit(self.bomb, ((margin + width) * column + margin, (margin + height) * row + margin))
+                    self.bomb.play()
+
+                if not grid[row][column] == 8 or grid[row][column] == 9:
                     draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
         
         self.drawNav()
@@ -509,7 +521,7 @@ class Game(ConnectionListener):
                                     if column == n[1]:
                                         if j == 1:
                                             print("Enemy HIT")
-                                            grid[row][column] = 2
+                                            grid[row][column] = 9
                                             grid[playersList[j][k - 1][1][0]][playersList[j][k - 1][1][1]] = 0
                                             playersList[1] = []
                                             BOMB = True
@@ -519,7 +531,7 @@ class Game(ConnectionListener):
                                     if column == n[1]:
                                         if j == 0:
                                             print("BOMB HIT")
-                                            grid[row][column] = 2
+                                            grid[row][column] = 9
                                             grid[playersList[j][k - 1][1][0]][playersList[j][k - 1][1][1]] = 0
                                             playersList[0] = []
                                             BOMB = True

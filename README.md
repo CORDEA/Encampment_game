@@ -13,6 +13,12 @@ Use library
 * PodSixNet
 * scikit-learn
 
+Version
+---------------
+* python 2.7.6
+* Pygame 1.9.2 pre
+* scikit-learn 0.15.0b
+
 Note
 ---------------
 This game is premised on the network match, it does not work one player.
