@@ -103,7 +103,7 @@ class Game(ConnectionListener):
         self.mouseCount = 0
         self.keyCount    = 0
        
-        self.bomb_icon = image.load("resources/bomb_icon.png")
+        self.bomb_icon = image.load("resources/bomb_icon.gif")
         self.bomb_icon = transform.scale(self.bomb_icon, (self.width, self.height))
 
         self.running = False
@@ -215,8 +215,11 @@ class Game(ConnectionListener):
                     color = self.colorList[7]
                 elif grid[row][column] == 8:
                     color = self.colorList[1]
-                    screen.blit(self.bomb_icon, ((margin + width) * column + margin, (margin + height) * row + margin))
-                draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
+                    draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
+                    self.screen.blit(self.bomb_icon, ((margin + width) * column + margin, (margin + height) * row + margin))
+                    
+                if not grid[row][column] == 8:
+                    draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
         
         self.drawNav()
         display.flip()
@@ -252,10 +255,11 @@ class Game(ConnectionListener):
         if number == 4:
             self.mouseCount = 5
             self.keyCount = 40
+            self.number = number
 
         self.mouseInfo = self.infofont.render("Set bomb: " + str(5 - self.mouseCount), False, (0, 0, 0))
         self.keyInfo = self.infofont.render("Move worm: " + str(40 - self.keyCount), False, (0, 0, 0))
-        if self.keyCount == 20:
+        if self.keyCount == 30:
             self.number = 2
         elif self.keyCount == 40:
             self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
@@ -265,11 +269,9 @@ class Game(ConnectionListener):
         
         self.screen.blit(self.mouseInfo, (10, self.GRID_BOTTOM + 10))
         self.screen.blit(self.keyInfo, (10, self.GRID_BOTTOM + 25))
-        #try:
+        
         draw.rect(self.screen, self.colorList[0], [140, self.GRID_BOTTOM + self.margin, self.SCREEN_WIDTH, self.SCREEN_HEIGHT - self.margin])
         self.setMessage(self.number)
-        #except:
-            #print("message not defined")
         
         display.flip()
 
@@ -278,7 +280,7 @@ class Game(ConnectionListener):
             self.fontcolor = self.colorList[5]
         elif self.playerNum == 1:
             self.fontcolor = self.colorList[3]
-
+        
         if number == 1:
             self.message = self.setStartMessage()
         elif number == 2:
@@ -295,7 +297,6 @@ class Game(ConnectionListener):
     def setPredictionMessage(self):
         fontcolor = self.fontcolor
         prediction = self.judgeBySVM()
-        print(prediction[0])
         if prediction[0] == 0:
             self.predText = "I stand no chance against him."
         elif prediction[0] == 1:
@@ -345,7 +346,10 @@ class Game(ConnectionListener):
         print(pos)
         row = pos[1] // (self.height + self.margin)
         column = pos[0] // (self.width + self.margin) 
-        grid[row][column] = 2
+        try:
+            grid[row][column] = 8
+        except:
+            pass
         self.drawGrid(grid)
         self.bombList.append([row, column])
         print(str(pos) + " " + str(row) + " " + str(column))
@@ -442,12 +446,6 @@ class Game(ConnectionListener):
         self.setPlayer(grid, player)
         self.drawGrid(grid)
 
-
-
-
-
-
-
     def start(self, grid, ownList):
         enemyRouteList = self.enemyRouteList
         enemyBombList  = self.enemyBombList
@@ -465,7 +463,6 @@ class Game(ConnectionListener):
         else:
             print("Unexpexted Error")
 
-        print("Your : " + str(ownList))
         #print("Player02: " + str(enemyRouteList))
         playersList = [ownList, enemyRouteList]
         self.refresh(grid)
