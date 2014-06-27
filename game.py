@@ -41,6 +41,7 @@ class Game(ConnectionListener):
         self.flagSend = True
         self.first = True
         self.whistle = False
+        self.once = False
 
        
         # Define some colors, display size
@@ -104,13 +105,13 @@ class Game(ConnectionListener):
         self.keyCount    = 0
        
         self.bomb_icon = image.load("resources/bomb_icon.gif")
-        self.bomb = image.load("resources/bomb.png")
+        self.bomb_exp = image.load("resources/bomb.png")
         self.bomb_icon = transform.scale(self.bomb_icon, (self.width, self.height))
-        self.bomb = transform.scale(self.bomb, (self.width, self.height))
-        self.set_bomb  = mixer.sound("resources/set_bomb.mp3")
-        self.bomb  = mixer.sound("resources/bomb.mp3")
-        self.set_bomb.set_volume(0.05)
-        self.bomb.set_volume(0.05)
+        self.bomb_exp = transform.scale(self.bomb_exp, (self.width, self.height))
+        self.set_bomb  = mixer.Sound("resources/set_bomb.wav")
+        self.bomb  = mixer.Sound("resources/bomb_exp.wav")
+        self.set_bomb.set_volume(0.20)
+        self.bomb.set_volume(0.20)
 
         self.running = False
         address=raw_input("Host:Port : ")
@@ -206,6 +207,7 @@ class Game(ConnectionListener):
 
         for row in range(15):
             for column in range(15):
+                flag = False
                 color = self.colorList[1]
                 if grid[row][column] == 2:
                     color = self.colorList[2]
@@ -219,18 +221,13 @@ class Game(ConnectionListener):
                     color = self.colorList[6]
                 elif grid[row][column] == 7:
                     color = self.colorList[7]
-                elif grid[row][column] == 8:
+                elif grid[row][column] == 8 or grid[row][column] == 9:
                     color = self.colorList[1]
                     draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
                     self.screen.blit(self.bomb_icon, ((margin + width) * column + margin, (margin + height) * row + margin))
-                    self.set_bomb.play()
-                elif grid[row][column] == 9:
-                    color = self.colorList[0]
-                    draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
-                    self.screen.blit(self.bomb, ((margin + width) * column + margin, (margin + height) * row + margin))
-                    self.bomb.play()
+                    flag = True
 
-                if not grid[row][column] == 8 or grid[row][column] == 9:
+                if not flag:
                     draw.rect(self.screen, color, [(margin + width) * column + margin, (margin + height) * row + margin, width, height])
         
         self.drawNav()
@@ -282,8 +279,10 @@ class Game(ConnectionListener):
         self.screen.blit(self.mouseInfo, (10, self.GRID_BOTTOM + 10))
         self.screen.blit(self.keyInfo, (10, self.GRID_BOTTOM + 25))
         
+  
         draw.rect(self.screen, self.colorList[0], [140, self.GRID_BOTTOM + self.margin, self.SCREEN_WIDTH, self.SCREEN_HEIGHT - self.margin])
         self.setMessage(self.number)
+
         
         display.flip()
 
@@ -300,7 +299,9 @@ class Game(ConnectionListener):
         elif number == 3:
             self.message = self.setWaitMessage()
         elif number == 4:
-            self.message = self.setPredictionMessage()
+            if not self.once:
+                self.message = self.setPredictionMessage()
+                self.once = True
         
         number = 0
         render = self.messagefont.render(self.message, False, self.fontcolor)
@@ -360,6 +361,7 @@ class Game(ConnectionListener):
         column = pos[0] // (self.width + self.margin) 
         try:
             grid[row][column] = 8
+            self.set_bomb.play(0)
         except:
             pass
         self.drawGrid(grid)
@@ -509,6 +511,7 @@ class Game(ConnectionListener):
                 if playersList[j][k:k + 1]:
                     for i in range(2):
                         if BOMB:
+                            self.bomb.play(0)
                             break
 
                         row    = playersList[j][k][i][0]
@@ -567,12 +570,26 @@ class Game(ConnectionListener):
     def outputTSV(self, result):
         wormRoute = self.controllWorm(grid, 0)
         outputFile = open("output.tsv", "a")
+        dataList = []
         outputFile.write(str(result))
         for j in range(len(wormRoute)):
             for k in range(len(wormRoute[j])):
                 for i in range(len(wormRoute[j][k])):
                     if k == 0:
-                        outputFile.write("\t" + str(wormRoute[j][k][i]))
+                        dataList.append(wormRoute[j][k][i])
+
+        if len(dataList) >= 0 and len(dataList) < 40:
+            print("too short")
+            while len(dataList) < 40:
+                dataList.append(0)
+                print("loop")
+        elif len(dataList) > 40:
+            while len(dataList) > 41:
+                dataList.pop()
+
+        for i in dataList:
+            outputFile.write("\t" + str(i))
+
         outputFile.write("\n")
         outputFile.close()
 
@@ -645,7 +662,7 @@ class Game(ConnectionListener):
         data_tmp = []
         dataList = []
 
-        data_training = np.loadtxt('output.tsv', delimiter='\t')
+        data_training = np.loadtxt('output_50.tsv', delimiter='\t')
 
         for k in range(len(data_training)):
             for i in range(len(data_training[k])):
@@ -667,10 +684,16 @@ class Game(ConnectionListener):
         estimator = LinearSVC(C=1.0)
         estimator.fit(data, label)
 
-        if len(dataList) >= 80:
-            print("too much route")
-            while len(dataList) == 80:
+        if len(dataList) >= 0 and len(dataList) < 40:
+            print("too short")
+            while len(dataList) < 40:
+                dataList.append(0)
+                print("loop")
+        elif len(dataList) > 40:
+            while len(dataList) > 40:
                 dataList.pop()
+
+        print(len(dataList))
 
         print("Input DATA: " + str(dataList))
         prediction = estimator.predict(dataList)
