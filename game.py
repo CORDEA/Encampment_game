@@ -274,13 +274,14 @@ class Game(ConnectionListener):
             self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
         else:
             self.number = number
-        draw.rect(self.screen, self.colorList[0], [0, self.GRID_BOTTOM + self.margin, 140, self.SCREEN_HEIGHT - self.margin])
+        draw.rect(self.screen, self.colorList[0], [0, self.GRID_BOTTOM + self.margin, 140, self.SCREEN_HEIGHT])
         
         self.screen.blit(self.mouseInfo, (10, self.GRID_BOTTOM + 10))
         self.screen.blit(self.keyInfo, (10, self.GRID_BOTTOM + 25))
         
   
-        draw.rect(self.screen, self.colorList[0], [140, self.GRID_BOTTOM + self.margin, self.SCREEN_WIDTH, self.SCREEN_HEIGHT - self.margin])
+        draw.rect(self.screen, self.colorList[0], [140, self.GRID_BOTTOM + self.margin, self.SCREEN_WIDTH, self.SCREEN_HEIGHT])
+        self.drawNav()
         self.setMessage(self.number)
 
         
