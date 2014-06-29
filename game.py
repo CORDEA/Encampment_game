@@ -570,29 +570,65 @@ class Game(ConnectionListener):
 
     def outputTSV(self, result):
         wormRoute = self.controllWorm(grid, 0)
-        outputFile = open("output.tsv", "a")
-        dataList = []
-        outputFile.write(str(result))
+        bombPos  = self.bombList
+        outputRow    = open("row.tsv", "a")
+        outputColumn = open("column.tsv", "a")
+        outputBomb   = open("bomb.tsv", "a")
+        rowList = []
+        columnList = []
+        bombList = []
+
+        outputRow.write(str(result))
+        outputColumn.write(str(result))
+        outputBomb.write(str(result))
+
         for j in range(len(wormRoute)):
             for k in range(len(wormRoute[j])):
                 for i in range(len(wormRoute[j][k])):
                     if k == 0:
-                        dataList.append(wormRoute[j][k][i])
+                        rowList.append(wormRoute[j][k][0])
+                        columnList.append(wormRoute[j][k][1])
 
-        if len(dataList) >= 0 and len(dataList) < 40:
+        for i in bombPos:
+            bombList.append(i[0])
+            bombList.append(i[1])
+
+        gridList = [rowList, columnList]
+
+        for i in range(len(gridList)):
+            if len(gridList[i]) >= 0 and len(gridList[i]) < 40:
+                print("too short")
+                while len(gridList[i]) < 40:
+                    gridList[i].append(0)
+                    print("loop")
+            elif len(gridList[i]) > 40:
+                while len(gridList[i]) > 40:
+                    gridList[i].pop()
+
+        if len(bombList) >= 0 and len(bombList) < 10:
             print("too short")
-            while len(dataList) < 40:
-                dataList.append(0)
+            while len(bombList) < 10:
+                bombList.append(0)
                 print("loop")
-        elif len(dataList) > 40:
-            while len(dataList) > 41:
-                dataList.pop()
+        elif len(bombList) > 10:
+            while len(bombList) > 10:
+                bombList.pop()
 
-        for i in dataList:
-            outputFile.write("\t" + str(i))
 
-        outputFile.write("\n")
-        outputFile.close()
+        for i in rowList:
+            outputRow.write("\t" + str(i))
+        for i in columnList:
+            outputColumn.write("\t" + str(i))
+        for i in bombList:
+            outputBomb.write("\t" + str(i))
+
+        rowList.write("\n")
+        columnList.write("\n")
+        bombList.write("\n")
+        
+        outputRow.close()
+        outputColumn.close()
+        outputBomb.close()
 
 
     def refresh(self, grid):
@@ -663,42 +699,183 @@ class Game(ConnectionListener):
         data_tmp = []
         dataList = []
 
-        data_training = np.loadtxt('output_50.tsv', delimiter='\t')
+        training_row = np.loadtxt('row.tsv', delimiter='\t')
+        training_column = np.loadtxt('column.tsv', delimiter='\t')
+        training_bomb = np.loadtxt('bomb.tsv', delimiter='\t')
 
-        for k in range(len(data_training)):
-            for i in range(len(data_training[k])):
-                if i == 0:
-                    label.append(int(data_training[k][0]))
-                    if k != 0:
-                        data.append(data_tmp)
-                    data_tmp = []
-                else:
-                    data_tmp.append(data_training[k][i])
-        data.append(data_tmp)
+        trainingList = [training_row, training_column]
+
+        for l in range(len(trainingList)):
+            label = []
+            data  = []
+            data_tmp = []
+            dataList = []
+
+            for k in range(len(trainingList[l])):
+                for i in range(len(trainingList[l][k])):
+                    if i == 0:
+                        label.append(int(trainingList[l][k][0]))
+                        if k != 0:
+                            data.append(data_tmp)
+                        data_tmp = []
+                    else:
+                        data_tmp.append(trainingList[l][k][i])
+            data.append(data_tmp)
+
+            estimator = LinearSVC(C=1.0)
+            estimator.fit(data, label)
+
+            if l == 0 or l == 1:
+                if l == 0:
+                    dataList = rowList
+                elif l == 1:
+                    dataList = columnList
+
+                for i in dataList:
+                    if len(i) >= 0 and len(i) < 40:
+                        print("too short")
+                        while len(i) < 40:
+                            i.append(0)
+                    elif len(i) > 40:
+                        while len(i) > 40:
+                            i.pop()
+
+            prediction = estimator.predict(i)
+            predList.append(prediction[0])
+
+        print(len(dataList))
+
+        print("Input DATA: " + str(dataList))
+
+        if predList[0] == 0 and predList[0] == 0:
+            print("LOSE")
+            prediction = [0]
+        elif predList[0] == 1 and predList[0] == 1:
+            print("WIN")
+            prediction = [1]
+        elif predList[0] == 2 and predList[0] == 2:
+            print("DRAW")
+            prediction = [2]
+        elif predList[0] == 0:
+            print("LOSE")
+            prediction = [0]
+        elif predList[0] == 1:
+            print("WIN")
+            prediction = [1]
+        elif predList[0] == 2:
+            print("DRAW")
+            prediction = [2]
+
+        return prediction
+
+    def Computer(self):
+        routeData = self.controllWorm(grid, 0)
+        bombPos  = self.bombList
+        training_row = np.loadtxt('row.tsv', delimiter='\t')
+        training_column = np.loadtxt('column.tsv', delimiter='\t')
+        training_bomb = np.loadtxt('bomb.tsv', delimiter='\t')
+
+        trainingList = [training_row, training_column]
+
+        # prediction: [row01, row02, column01, column02]
+        # up down left right
+        predList = []
+
+        row00List = []
+        column00List = []       
+        row01List = []
+        column01List = []
+        row02List = []
+        column02List = []
+        bombList = []
+
+        if self.playerNum == 0:
+            if (routeData[-1][0][0] == 0 and routeData[-1][0][1] == 14) or (routeData[-1][0][0] == 14 and routeData[-1][0][1] == 14):
+                print("END")
+        elif self.playerNum == 1:
+            if (routeData[-1][0][0] == 0 and routeData[-1][0][1] == 0) or (routeData[-1][0][0] == 14 and routeData[-1][0][1] == 0):
+                print("END")
 
         for j in range(len(routeData)):
             for k in range(len(routeData[j])):
                 for i in range(len(routeData[j][k])):
                     if k == 0:
-                        dataList.append(routeData[j][k][i])
+                        row00List.append(routeData[j][k][0])
+                        row01List.append(routeData[j][k][0])
+                        row02List.append(routeData[j][k][0])
+                        column00List.append(routeData[j][k][1])
+                        column01List.append(routeData[j][k][1])
+                        column02List.append(routeData[j][k][1])
 
-        estimator = LinearSVC(C=1.0)
-        estimator.fit(data, label)
+        row01List.append(row01List[-1] - 1)
+        row02List.append(row02List[-1] + 1)
+        column01List.append(column01List[-1] - 1)
+        column02List.append(column02List[-1] + 1)
 
-        if len(dataList) >= 0 and len(dataList) < 40:
-            print("too short")
-            while len(dataList) < 40:
-                dataList.append(0)
-                print("loop")
-        elif len(dataList) > 40:
-            while len(dataList) > 40:
-                dataList.pop()
+        rowList = [row01List, row02List]
+        columnList = [column01List, column02List]
+        
+        for l in range(len(trainingList)):
+            label = []
+            data  = []
+            data_tmp = []
+            dataList = []
 
-        print(len(dataList))
+            for k in range(len(trainingList[l])):
+                for i in range(len(trainingList[l][k])):
+                    if i == 0:
+                        label.append(int(trainingList[l][k][0]))
+                        if k != 0:
+                            data.append(data_tmp)
+                        data_tmp = []
+                    else:
+                        data_tmp.append(trainingList[l][k][i])
+            data.append(data_tmp)
 
-        print("Input DATA: " + str(dataList))
-        prediction = estimator.predict(dataList)
-        return prediction
+            estimator = LinearSVC(C=1.0)
+            estimator.fit(data, label)
+
+            if l == 0 or l == 1:
+                if l == 0:
+                    dataList = rowList
+                elif l == 1:
+                    dataList = columnList
+
+                for i in dataList:
+                    if len(i) >= 0 and len(i) < 40:
+                        print("too short")
+                        while len(i) < 40:
+                            i.append(0)
+                    elif len(i) > 40:
+                        while len(i) > 40:
+                            i.pop()
+
+            if l == 0:
+                for i in dataList:
+                    prediction = estimator.predict(i)
+                    predList.append(prediction[0])
+            elif l == 1:
+                for i in dataList:
+                    prediction = estimator.predict(i)
+                    predList.append(prediction[0])
+
+        if 1 in predList:
+            for i in range(len(predList)):
+                if predList[i] == 1:
+                    shuffleList.append(i)
+
+            random.shuffle(shuffleList)
+        elif 2 in predList:
+            for i in range(len(predList)):
+                if predList[i] == 2:
+                    shuffleList.append(i)
+
+            random.shuffle(shuffleList)
+        else:
+            shuffleList.append(random.randint(0, 3))
+
+        self.controllWorm(grid, shuffleList[0] + 1)
+        sleep(0.5)
 
 if __name__=='__main__':
     from time import sleep
