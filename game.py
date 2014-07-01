@@ -5,6 +5,7 @@ from PodSixNet.Connection import ConnectionListener, connection
 from sklearn.svm import LinearSVC
 import numpy as np
 from datetime import datetime
+import random
 
 class Game(ConnectionListener):
     def Network_startgame(self, data):
@@ -39,6 +40,7 @@ class Game(ConnectionListener):
 
 
         self.flagSend = True
+        self.computerFlag = True
         self.first = True
         self.whistle = False
         self.once = False
@@ -194,7 +196,10 @@ class Game(ConnectionListener):
                     print("Send")
                     self.setInfo(3)
                     self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
-                
+                elif ev.key == K_q:
+                    print("Computer")
+                    while self.computerFlag:
+                        self.Computer()
                 self.setInfo(0)
 
     def drawGrid(self, grid):
@@ -282,7 +287,12 @@ class Game(ConnectionListener):
   
         draw.rect(self.screen, self.colorList[0], [140, self.GRID_BOTTOM + self.margin, self.SCREEN_WIDTH, self.SCREEN_HEIGHT])
         self.drawNav()
-        self.setMessage(self.number)
+        try:
+            self.setMessage(self.number)
+        except Exception as e:
+            print("Message Error")
+            print("message: " + str(e.message))
+            print("e: " + str(e))
 
         
         display.flip()
@@ -622,9 +632,9 @@ class Game(ConnectionListener):
         for i in bombList:
             outputBomb.write("\t" + str(i))
 
-        rowList.write("\n")
-        columnList.write("\n")
-        bombList.write("\n")
+        outputRow.write("\n")
+        outputColumn.write("\n")
+        outputBomb.write("\n")
         
         outputRow.close()
         outputColumn.close()
@@ -698,12 +708,22 @@ class Game(ConnectionListener):
         data  = []
         data_tmp = []
         dataList = []
+        rowList = []
+        columnList = []
+        predList = []
 
         training_row = np.loadtxt('row.tsv', delimiter='\t')
         training_column = np.loadtxt('column.tsv', delimiter='\t')
         training_bomb = np.loadtxt('bomb.tsv', delimiter='\t')
 
         trainingList = [training_row, training_column]
+
+        for j in range(len(routeData)):
+            for k in range(len(routeData[j])):
+                for i in range(len(routeData[j][k])):
+                    if k == 0:
+                        rowList.append(routeData[j][k][0])
+                        columnList.append(routeData[j][k][1])
 
         for l in range(len(trainingList)):
             label = []
@@ -722,7 +742,9 @@ class Game(ConnectionListener):
                         data_tmp.append(trainingList[l][k][i])
             data.append(data_tmp)
 
-            estimator = LinearSVC(C=1.0)
+            estimator = LinearSVC()#C=1.0)
+            print(str(data))
+            print(str(label))
             estimator.fit(data, label)
 
             if l == 0 or l == 1:
@@ -731,16 +753,15 @@ class Game(ConnectionListener):
                 elif l == 1:
                     dataList = columnList
 
-                for i in dataList:
-                    if len(i) >= 0 and len(i) < 40:
-                        print("too short")
-                        while len(i) < 40:
-                            i.append(0)
-                    elif len(i) > 40:
-                        while len(i) > 40:
-                            i.pop()
+                if len(dataList) >= 0 and len(dataList) < 40:
+                    print("too short")
+                    while len(dataList) < 40:
+                        dataList.append(0)
+                elif len(dataList) > 40:
+                    while len(dataList) > 40:
+                        dataList.pop()
 
-            prediction = estimator.predict(i)
+            prediction = estimator.predict(dataList)
             predList.append(prediction[0])
 
         print(len(dataList))
@@ -789,12 +810,18 @@ class Game(ConnectionListener):
         column02List = []
         bombList = []
 
+        shuffleList = []
+
         if self.playerNum == 0:
             if (routeData[-1][0][0] == 0 and routeData[-1][0][1] == 14) or (routeData[-1][0][0] == 14 and routeData[-1][0][1] == 14):
                 print("END")
+                self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
+                self.computerFlag = False
         elif self.playerNum == 1:
             if (routeData[-1][0][0] == 0 and routeData[-1][0][1] == 0) or (routeData[-1][0][0] == 14 and routeData[-1][0][1] == 0):
                 print("END")
+                self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
+                self.computerFlag = False
 
         for j in range(len(routeData)):
             for k in range(len(routeData[j])):
