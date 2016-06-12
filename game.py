@@ -1,70 +1,99 @@
 #!/bin/env/python
 #coding: utf-8
 
+from pygame import *
 from PodSixNet.Connection import ConnectionListener, connection
 from sklearn.svm import LinearSVC
-import numpy as np
 from datetime import datetime
+from time import sleep
+
+import numpy as np
 import random
+import sys
+
+u"""Encampment game with Pygame
+Pygame, PodSixNet, scikit-learnを用いたネットワーク対戦の陣取りゲームです。
+
+
+使用しているライブラリ
+---------------
+* Pygame
+* PodSixNet
+* scikit-learn 
+
+Version
+---------------
+* python 2.7.6
+* Pygame 1.9.2 pre
+* scikit-learn 0.15.0b
+
+"""
+
+__author__ = "Yoshihiro Tanaka"
+__date__   = "18 Jul. 2014"
 
 class Game(ConnectionListener):
     def Network_startgame(self, data):
+        u"""相手playerを待ち、playerNumberを受け取る"""
         self.running=True
         self.playerNum=data["player"]
         print ("PlayerNumber: " + str(self.playerNum))
     
     def Network_getRoute(self, data):
+        u"""相手のroute情報を取得する"""
         self.enemyRouteList = data["route"]
         self.enemyBombList = data["bomb"]
-        print(self.enemyRouteList)
-        print(self.playerNum)
-        print(len(self.enemyRouteList))
 
     def Network_whistle(self, data):
+        u"""互いのデータを互いが受領したことを確認した後でwhistleを鳴らす"""
         self.start(grid, self.controllWorm(grid, 0))
         self.whistle = True
 
     def Network_disconnected(self, data):
+        u"""Serverから切断された場合の処理"""
         print("Server disconnected")
         exit()
      
     def __init__(self, grid):
         
-        # Define number of grids
-        GRID_N = 15
         
-        self.width  = 30
-        self.height = 30
-        self.margin = 5
-        self.nav_bar = 40
-
-
-        self.flagSend = True
+        # DEFINE: flag
+        self.flagSend     = True
         self.computerFlag = True
-        self.first = True
-        self.whistle = False
-        self.once = False
-
-       
-        # Define some colors, display size
+        self.first        = True
+        self.whistle      = False
+        self.once         = False
+        self.running      = False
+        self.winFlag      = 0
+   
+        # DEFINE: display size
         self.SCREEN_WIDTH  = (GRID_N * self.width) + ((GRID_N + 1) * self.margin)
         self.GRID_BOTTOM   = (GRID_N * self.height) + ((GRID_N + 1) * self.margin)
         self.SCREEN_HEIGHT  = self.GRID_BOTTOM + self.nav_bar + (self.margin * 2)
+        self.width   = 30
+        self.height  = 30
+        self.margin  = 5
+        self.nav_bar = 40
 
-        sysfont = font.SysFont(None, 80)
-        self.win_text = sysfont.render("- You WIN -", False, (0, 0, 0))
-        self.lose_text = sysfont.render("- You LOSE -", False, (0, 0, 0))
-        self.draw_text = sysfont.render("- DRAW -", False, (0, 0, 0))
+        # DEFINE: number of grids
+        GRID_N = 15
 
-        titlefont = font.SysFont(None, 60)
-        descfont = font.SysFont(None, 25)
-        startfont = font.SysFont(None, 30)
-        self.messagefont = font.SysFont(None, 25)
+        # DEFINE: font
+        sysfont           = font.SysFont(None, 80)
+        titlefont         = font.SysFont(None, 60)
+        descfont          = font.SysFont(None, 25)
+        startfont         = font.SysFont(None, 30)
+        self.messagefont  = font.SysFont(None, 25)
         self.message1font = font.SysFont(None, 25)
         self.message2font = font.SysFont(None, 25)
         self.message3font = font.SysFont(None, 25)
-        self.infofont = font.SysFont(None, 22)
-        self.titleText = titlefont.render("Description", False, (0, 0, 0))
+        self.infofont     = font.SysFont(None, 22)
+
+        # DEFINE: text
+        self.win_text   = sysfont.render("- You WIN -", False, (0, 0, 0))
+        self.lose_text  = sysfont.render("- You LOSE -", False, (0, 0, 0))
+        self.draw_text  = sysfont.render("- DRAW -", False, (0, 0, 0))
+        self.titleText  = titlefont.render("Description", False, (0, 0, 0))
         self.descText01 = descfont.render("key UP: Worm moves upward direction.", False, (0, 0, 0))
         self.descText02 = descfont.render("key DOWN: Worm moves downward direction.", False, (0, 0, 0))
         self.descText03 = descfont.render("key LEFT: Worm moves to the left direction.", False, (0, 0, 0))
@@ -73,8 +102,8 @@ class Game(ConnectionListener):
         self.descText06 = descfont.render("MOUSEDOWN: Place the bomb.", False, (0, 0, 0))
         self.descText07 = descfont.render("Press the SPACE key to start.", False, (0, 0, 0))
 
-        self.winFlag = 0
-   
+        
+        # DEFINE: color
         self.colorList = [
                 (255, 255, 255),
                 (  0,   0,   0), 
@@ -94,18 +123,21 @@ class Game(ConnectionListener):
         # ORANGE = (255, 165,   0)
         # DARK GREEN = (  0, 100,   0)
 
-
         self.fontcolor = self.colorList[1]
 
+        # DEFINE: location of the positon
         self.firstList  = [[[7, 2], [7, 1]]]
         self.secondList = [[[7, 12], [7, 13]]]
         self.bombList   = []
+
         self.setField(grid)
         self.setPlayer(grid, 0)
 
+        # DEFINE: count
         self.mouseCount = 0
         self.keyCount    = 0
        
+        # DEFINE: resources
         self.bomb_icon = image.load("resources/bomb_icon.gif")
         self.bomb_exp = image.load("resources/bomb.png")
         self.bomb_icon = transform.scale(self.bomb_icon, (self.width, self.height))
@@ -115,7 +147,7 @@ class Game(ConnectionListener):
         self.set_bomb.set_volume(0.20)
         self.bomb.set_volume(0.20)
 
-        self.running = False
+        
         address=raw_input("Host:Port : ")
         try:
             if not address:
@@ -126,15 +158,18 @@ class Game(ConnectionListener):
         except:
             print "Error Connecting to Server"
             print "Usage:", "host:port"
-            print "e.g.", "localhost:31425"
+            print "ex.", "localhost:31425"
             exit()
         print "Game client started"
+
+        # Trueでloopから抜ける
         while not self.running:
             connection.Pump()
             self.Pump()
             sleep(0.01)
     
     def wait_keypress(self, grid):
+        u"""キー入力を待つ"""
         while True:
             connection.Pump()
             self.Pump()
@@ -156,9 +191,8 @@ class Game(ConnectionListener):
                 quit()
             elif ev.type == MOUSEBUTTONDOWN:
                 if self.mouseCount >= 5:
-                    print("BOMB LIMIT")
+                    pass
                 else:
-                    print("MOUSE BUTTON DOWN")
                     self.getGridClick(grid)
                     self.mouseCount += 1
 
@@ -166,34 +200,33 @@ class Game(ConnectionListener):
             elif ev.type == KEYDOWN:
                 if ev.key == K_UP:
                     if self.keyCount >= 40:
-                        print("LIMIT")
+                        pass
                     else:
                         print("Key: UP")
                         self.controllWorm(grid, 1)
                         self.keyCount += 1
                 elif ev.key == K_DOWN:
                     if self.keyCount >= 40:
-                        print("LIMIT")
+                        pass
                     else:
                         print("Key: DOWN")
                         self.controllWorm(grid, 2)
                         self.keyCount += 1
                 elif ev.key == K_LEFT:
                     if self.keyCount >= 40:
-                        print("LIMIT")
+                        pass
                     else:
                         print("Key: LEFT")
                         self.controllWorm(grid, 3)
                         self.keyCount += 1
                 elif ev.key == K_RIGHT:
                     if self.keyCount >= 40:
-                        print("LIMIT")
+                        pass
                     else:
                         print("Key: RIGHT")
                         self.controllWorm(grid, 4)
                         self.keyCount += 1
                 elif ev.key == K_r:
-                    print("Send")
                     self.setInfo(3)
                     self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
                 elif ev.key == K_q:
@@ -203,7 +236,8 @@ class Game(ConnectionListener):
                 self.setInfo(0)
 
     def drawGrid(self, grid):
-        width = self.width
+        u"""15x15のgridを描画する"""
+        width  = self.width
         height = self.height
         margin = self.margin
         self.screen = display.set_mode((self.SCREEN_WIDTH, self.SCREEN_HEIGHT), 0, 32)
@@ -239,10 +273,12 @@ class Game(ConnectionListener):
         display.flip()
 
     def drawNav(self):
+        u"""navigation barの上端と下端を描画する"""
         draw.rect(self.screen, self.colorList[1], [0, self.GRID_BOTTOM, self.SCREEN_WIDTH, self.margin])
         draw.rect(self.screen, self.colorList[1], [0, self.SCREEN_HEIGHT - self.margin, self.SCREEN_WIDTH, self.margin])
 
     def setField(self, grid):
+        u"""陣を描画する"""
         grid[0][0]  = 7
         grid[14][0] = 7
 
@@ -251,6 +287,7 @@ class Game(ConnectionListener):
         self.drawGrid(grid)
 
     def setPlayer(self, grid, player):
+        u"""wormを初期位置に描画する"""
         if player == 0:
             grid[7][1] = 5
             grid[7][2] = 5
@@ -266,6 +303,7 @@ class Game(ConnectionListener):
         self.drawGrid(grid)
 
     def setInfo(self, number):
+        u"""navigation barに表示する情報の描画を行う"""
         if number == 4:
             self.mouseCount = 5
             self.keyCount = 40
@@ -287,6 +325,8 @@ class Game(ConnectionListener):
   
         draw.rect(self.screen, self.colorList[0], [140, self.GRID_BOTTOM + self.margin, self.SCREEN_WIDTH, self.SCREEN_HEIGHT])
         self.drawNav()
+
+        # 該当するメッセージが無い場合は表示しない(Errorとしてpassする)
         try:
             self.setMessage(self.number)
         except Exception as e:
@@ -298,6 +338,7 @@ class Game(ConnectionListener):
         display.flip()
 
     def setMessage(self, number):
+        u"""messageを取得して描画する"""
         if self.playerNum == 0:
             self.fontcolor = self.colorList[5]
         elif self.playerNum == 1:
@@ -319,6 +360,7 @@ class Game(ConnectionListener):
         self.screen.blit(render, (140, self.GRID_BOTTOM + 20))
 
     def setPredictionMessage(self):
+        u"""学習によって得られた勝敗予測の結果を取得してtextで返す"""
         fontcolor = self.fontcolor
         prediction = self.judgeBySVM()
         if prediction[0] == 0:
@@ -333,10 +375,10 @@ class Game(ConnectionListener):
         return self.predText
 
     def setStartMessage(self):
+        u"""gameのstart時に表示するメッセージを起動時間に応じて変更する"""
         fontcolor = self.fontcolor
         playtime = int(datetime.now().strftime("%H"))
 
-        print playtime
 
         if playtime >= 0 and playtime <= 5:
             self.timeText = "You work far into the night. Are you still awake?"
@@ -356,20 +398,23 @@ class Game(ConnectionListener):
         return self.timeText
 
     def setLimitMessage(self):
+        u"""wormの移動可能ターンが10を切った時に表示するメッセージを返す"""
         self.limitText = "I soon became tired."
 
         return self.limitText
 
     def setWaitMessage(self):
+        u"""相手を待つ間表示されるメッセージを返す"""
         self.waitText = "He will blow hot and cold."
 
         return self.waitText
 
     def getGridClick(self, grid):
+        u"""clickされたgridのpositionを取得する"""
         pos = mouse.get_pos()
-        print(pos)
         row = pos[1] // (self.height + self.margin)
         column = pos[0] // (self.width + self.margin) 
+        # gridの範囲外をclickした時のErrorをpassする
         try:
             grid[row][column] = 8
             self.set_bomb.play(0)
@@ -377,9 +422,9 @@ class Game(ConnectionListener):
             pass
         self.drawGrid(grid)
         self.bombList.append([row, column])
-        print(str(pos) + " " + str(row) + " " + str(column))
 
     def controllWorm(self, grid, move):
+        u"""押されたキーに応じてwormの描画を更新する"""
         global isCollision
         playerNum = self.playerNum
         if playerNum == 0:
@@ -456,7 +501,6 @@ class Game(ConnectionListener):
         tailList.append(column)
 
         grid[ownList[-1][1][0]][ownList[-1][1][1]] = 0
-        print(isCollision)
 
         for i in range(len(isCollision)):
             if isCollision[i] > 1:
@@ -472,6 +516,7 @@ class Game(ConnectionListener):
         self.drawGrid(grid)
 
     def start(self, grid, ownList):
+        u"""ゲームの再生を行う"""
         enemyRouteList = self.enemyRouteList
         enemyBombList  = self.enemyBombList
         bombList = self.bombList
@@ -488,7 +533,6 @@ class Game(ConnectionListener):
         else:
             print("Unexpexted Error")
 
-        #print("Player02: " + str(enemyRouteList))
         playersList = [ownList, enemyRouteList]
         self.refresh(grid)
         sleep(1.0)
@@ -530,11 +574,11 @@ class Game(ConnectionListener):
                         grid[row][column] = playerColorList[j]
 
                         if i == 0:
+                            # bombへのhit判定 --->
                             for n in bombList:
                                 if row == n[0]:
                                     if column == n[1]:
                                         if j == 1:
-                                            print("Enemy HIT")
                                             grid[row][column] = 9
                                             grid[playersList[j][k - 1][1][0]][playersList[j][k - 1][1][1]] = 0
                                             playersList[1] = []
@@ -544,12 +588,13 @@ class Game(ConnectionListener):
                                 if row == n[0]:
                                     if column == n[1]:
                                         if j == 0:
-                                            print("BOMB HIT")
                                             grid[row][column] = 9
                                             grid[playersList[j][k - 1][1][0]][playersList[j][k - 1][1][1]] = 0
                                             playersList[0] = []
                                             BOMB = True
+                            # <---
 
+                            # 勝利判定 --->
                             for n in yourArea:
                                 if row == n[0]:
                                     if column == n[1]:
@@ -561,7 +606,7 @@ class Game(ConnectionListener):
                                     if column == n[1]:
                                         if j == 0:
                                             drawFlag[0] = 1
-                    
+                            # <---
                     if not BOMB:
                         grid[playersList[j][k - 1][1][0]][playersList[j][k - 1][1][1]] = 0
 
@@ -571,7 +616,6 @@ class Game(ConnectionListener):
                     self.drawGrid(grid)
                     self.setInfo(0)
                 else:
-                    print("turn end")
                     pass
             sleep(0.3)
         self.outputTSV(2)
@@ -579,6 +623,7 @@ class Game(ConnectionListener):
 
 
     def outputTSV(self, result):
+        u"""データを加工してtsvファイルを出力する"""
         wormRoute = self.controllWorm(grid, 0)
         bombPos  = self.bombList
         outputRow    = open("row.tsv", "a")
@@ -607,19 +652,15 @@ class Game(ConnectionListener):
 
         for i in range(len(gridList)):
             if len(gridList[i]) >= 0 and len(gridList[i]) < 40:
-                print("too short")
                 while len(gridList[i]) < 40:
                     gridList[i].append(0)
-                    print("loop")
             elif len(gridList[i]) > 40:
                 while len(gridList[i]) > 40:
                     gridList[i].pop()
 
         if len(bombList) >= 0 and len(bombList) < 10:
-            print("too short")
             while len(bombList) < 10:
                 bombList.append(0)
-                print("loop")
         elif len(bombList) > 10:
             while len(bombList) > 10:
                 bombList.pop()
@@ -642,6 +683,7 @@ class Game(ConnectionListener):
 
 
     def refresh(self, grid):
+        u"""全てrefreshする"""
         for row in range(15):
             for column in range(15):
                 grid[row][column] = 1
@@ -649,6 +691,7 @@ class Game(ConnectionListener):
         self.drawGrid(grid)
 
     def Judge(self, result):
+        u"""勝敗の結果を描画する"""
         self.White()
 
         if result == 0:
@@ -671,20 +714,22 @@ class Game(ConnectionListener):
                     quit()
 
     def White(self):
+        u"""指定範囲をWhiteで塗りつぶす"""
         color = self.colorList[0]
         draw.rect(self.screen, color, [0, self.SCREEN_HEIGHT / 4, self.SCREEN_WIDTH, self.SCREEN_HEIGHT / 2])
 
     def startupScreen(self, grid):
+        u"""説明を描画する"""
         if self.first:
 
             self.White()
-            self.screen.blit(self.titleText, (50, self.SCREEN_HEIGHT / 4 + 10))
-            self.screen.blit(self.descText01, (70, (self.SCREEN_HEIGHT / 4) + 65 + (25 * 0)))
-            self.screen.blit(self.descText02, (70, (self.SCREEN_HEIGHT / 4) + 65 + (25 * 1)))
-            self.screen.blit(self.descText03, (70, (self.SCREEN_HEIGHT / 4) + 65 + (25 * 2)))
-            self.screen.blit(self.descText04, (70, (self.SCREEN_HEIGHT / 4) + 65 + (25 * 3)))
-            self.screen.blit(self.descText05, (70, (self.SCREEN_HEIGHT / 4) + 65 + (25 * 4)))
-            self.screen.blit(self.descText06, (70, (self.SCREEN_HEIGHT / 4) + 65 + (25 * 5)))
+            self.screen.blit(self.titleText,  (50,  (self.SCREEN_HEIGHT / 4) + 10))
+            self.screen.blit(self.descText01, (70,  (self.SCREEN_HEIGHT / 4) + 65 + (25 * 0)))
+            self.screen.blit(self.descText02, (70,  (self.SCREEN_HEIGHT / 4) + 65 + (25 * 1)))
+            self.screen.blit(self.descText03, (70,  (self.SCREEN_HEIGHT / 4) + 65 + (25 * 2)))
+            self.screen.blit(self.descText04, (70,  (self.SCREEN_HEIGHT / 4) + 65 + (25 * 3)))
+            self.screen.blit(self.descText05, (70,  (self.SCREEN_HEIGHT / 4) + 65 + (25 * 4)))
+            self.screen.blit(self.descText06, (70,  (self.SCREEN_HEIGHT / 4) + 65 + (25 * 5)))
             self.screen.blit(self.descText07, (100, (self.SCREEN_HEIGHT / 4) + 230))
 
             display.flip()
@@ -696,27 +741,26 @@ class Game(ConnectionListener):
                 quit()
             elif ev.type == KEYDOWN:
                 if ev.key == K_SPACE:
-                    print("game start")
                     self.setField(grid)
                     self.setPlayer(grid, 0)
                     self.setInfo(1)
                     self.wait_keypress(grid)
 
     def judgeBySVM(self):
-        routeData = self.controllWorm(grid, 0)
-        label = []
-        data  = []
-        data_tmp = []
-        dataList = []
-        rowList = []
+        u"""SVCを用いてtsvデータから学習し、routeデータから勝敗を予測する"""
+        routeData  = self.controllWorm(grid, 0)
+        label      = []
+        data       = []
+        data_tmp   = []
+        dataList   = []
+        rowList    = []
         columnList = []
-        predList = []
+        predList   = []
 
-        training_row = np.loadtxt('row.tsv', delimiter='\t')
+        training_row    = np.loadtxt('row.tsv', delimiter='\t')
         training_column = np.loadtxt('column.tsv', delimiter='\t')
-        training_bomb = np.loadtxt('bomb.tsv', delimiter='\t')
-
-        trainingList = [training_row, training_column]
+        training_bomb   = np.loadtxt('bomb.tsv', delimiter='\t')
+        trainingList    = [training_row, training_column]
 
         for j in range(len(routeData)):
             for k in range(len(routeData[j])):
@@ -726,8 +770,8 @@ class Game(ConnectionListener):
                         columnList.append(routeData[j][k][1])
 
         for l in range(len(trainingList)):
-            label = []
-            data  = []
+            label    = []
+            data     = []
             data_tmp = []
             dataList = []
 
@@ -742,9 +786,9 @@ class Game(ConnectionListener):
                         data_tmp.append(trainingList[l][k][i])
             data.append(data_tmp)
 
+            # TODO: Grid search
+            # URL : http://sucrose.hatenablog.com/entry/2013/05/25/133021
             estimator = LinearSVC()#C=1.0)
-            print(str(data))
-            print(str(label))
             estimator.fit(data, label)
 
             if l == 0 or l == 1:
@@ -754,7 +798,6 @@ class Game(ConnectionListener):
                     dataList = columnList
 
                 if len(dataList) >= 0 and len(dataList) < 40:
-                    print("too short")
                     while len(dataList) < 40:
                         dataList.append(0)
                 elif len(dataList) > 40:
@@ -764,62 +807,51 @@ class Game(ConnectionListener):
             prediction = estimator.predict(dataList)
             predList.append(prediction[0])
 
-        print(len(dataList))
-
-        print("Input DATA: " + str(dataList))
 
         if predList[0] == 0 and predList[0] == 0:
-            print("LOSE")
             prediction = [0]
         elif predList[0] == 1 and predList[0] == 1:
-            print("WIN")
             prediction = [1]
         elif predList[0] == 2 and predList[0] == 2:
-            print("DRAW")
             prediction = [2]
         elif predList[0] == 0:
-            print("LOSE")
             prediction = [0]
         elif predList[0] == 1:
-            print("WIN")
             prediction = [1]
         elif predList[0] == 2:
-            print("DRAW")
             prediction = [2]
 
         return prediction
 
     def Computer(self):
-        routeData = self.controllWorm(grid, 0)
-        bombPos  = self.bombList
-        training_row = np.loadtxt('row.tsv', delimiter='\t')
-        training_column = np.loadtxt('column.tsv', delimiter='\t')
-        training_bomb = np.loadtxt('bomb.tsv', delimiter='\t')
+        u"""computerの動きを制御する"""
+        routeData       = self.controllWorm(grid, 0)
+        bombPos         = self.bombList
 
-        trainingList = [training_row, training_column]
+        training_row    = np.loadtxt('row.tsv', delimiter='\t')
+        training_column = np.loadtxt('column.tsv', delimiter='\t')
+        training_bomb   = np.loadtxt('bomb.tsv', delimiter='\t')
+
+        trainingList    = [training_row, training_column]
 
         # prediction: [row01, row02, column01, column02]
         # up down left right
-        predList = []
-
-        row00List = []
+        predList     = []
+        row00List    = []
         column00List = []       
-        row01List = []
+        row01List    = []
         column01List = []
-        row02List = []
+        row02List    = []
         column02List = []
-        bombList = []
-
-        shuffleList = []
+        bombList     = []
+        shuffleList  = []
 
         if self.playerNum == 0:
             if (routeData[-1][0][0] == 0 and routeData[-1][0][1] == 14) or (routeData[-1][0][0] == 14 and routeData[-1][0][1] == 14):
-                print("END")
                 self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
                 self.computerFlag = False
         elif self.playerNum == 1:
             if (routeData[-1][0][0] == 0 and routeData[-1][0][1] == 0) or (routeData[-1][0][0] == 14 and routeData[-1][0][1] == 0):
-                print("END")
                 self.Send({"action": "getRoute", "route": self.controllWorm(grid, 0), "bomb": self.bombList, "player": self.playerNum})
                 self.computerFlag = False
 
@@ -868,9 +900,10 @@ class Game(ConnectionListener):
                 elif l == 1:
                     dataList = columnList
 
+                # WARN:
+                # 座標データ数が0以上40以下であった場合、40に整形する
                 for i in dataList:
                     if len(i) >= 0 and len(i) < 40:
-                        print("too short")
                         while len(i) < 40:
                             i.append(0)
                     elif len(i) > 40:
@@ -886,6 +919,7 @@ class Game(ConnectionListener):
                     prediction = estimator.predict(i)
                     predList.append(prediction[0])
 
+        # WARN: 
         if 1 in predList:
             for i in range(len(predList)):
                 if predList[i] == 1:
@@ -905,9 +939,6 @@ class Game(ConnectionListener):
         sleep(0.5)
 
 if __name__=='__main__':
-    from time import sleep
-    from pygame import *
-    import sys
 
     init()
     isCollision = [0, 0, 0, 0]
